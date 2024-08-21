@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Video Recording with Cat Mask to Telegram</title>
+    <title>Video Recording with Cat Mask</title>
     <script defer src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
     <style>
         #video {
@@ -41,10 +41,10 @@
         let mediaRecorder;
         let recordedChunks = [];
 
-        // Load face-api models
+        // Load face-api models from CDN
         Promise.all([
-            faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
-            faceapi.nets.faceLandmark68Net.loadFromUri('/models')
+            faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/face-api.js/weights/tiny_face_detector_model-weights_manifest.json'),
+            faceapi.nets.faceLandmark68Net.loadFromUri('https://cdn.jsdelivr.net/npm/face-api.js/weights/face_landmark_68_model-weights_manifest.json')
         ]).then(startVideo);
 
         function startVideo() {
